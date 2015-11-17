@@ -11,7 +11,7 @@ output: html_document
 
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
 
-**Data (directly from assigment)**  
+**Data (directly from assignment)**  
 
 The training data for this project are available here: 
 
@@ -20,3 +20,148 @@ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
 The test data are available here: 
 
 https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+**Approach**
+
+Cleanse the data, and split into training and testing data sets.  Create three models with the training data: decision tree, random forests and boosting. Select the most accurate model, and cross-validate with the testing data to determine the out of sample error rate.  The "best" model is random forests, which validates 20/20 of the submitted test cases.
+
+
+```{r echo=F,warning=F,message=F,results='hide',cache=T}
+#(list=ls())
+setwd("C:/coursera/Machine_Learning/")
+library(data.table)
+library(datasets)
+library(ElemStatLearn)
+library(pgmm)
+library(rpart)
+library(rpart.plot)
+library(e1071)
+library(rattle)
+library(randomForest)
+library(AppliedPredictiveModeling)
+library(caret)
+library(tree)
+library(plyr)
+library(gbm)
+library(survival)
+library(splines)
+
+```
+
+####Load and Cleanse the Data
+
+Set the seed. Read the csv files into R. Naming the testing data "the20" so as to not confuse this with the 40% sample testing data I create later for cross-validation.
+Note: I previously downloaded these, my company firewall won't allow me to automate the download.  
+```{r echo=TRUE,warning=F,message=F,cache=T}
+set.seed(1234)
+raw<-read.csv(file="pml-training.csv", header=TRUE, sep=",")
+the20<-read.csv(file="pml-testing.csv", header=TRUE, sep=",")
+```
+
+Remove N/A, low variance, unneeded.  Factor classe.  
+```{r echo=TRUE,warning=F,message=F,cache=T}
+
+# remove variables with high proportion of NA
+NAs<-sapply(raw,is.na)
+TotNAs<-colSums(NAs)
+percentNAs<-TotNAs/(dim(raw)[1])
+#viewed percentNAs, determine cutoff
+delete<-percentNAs>=.8
+#keep columns that shouldn't be deleted  
+raw<-raw[,!delete]
+
+#eliminate low variance variables
+nzv<-nearZeroVar(raw,saveMetrics=TRUE)
+raw<-raw[,nzv$nzv==FALSE]
+
+#eliminate unneeded variables
+delete2<-names(raw) %in% 
+c(
+        'X', 
+        'user_name', 
+        'raw_timestamp_part_1', 
+        'raw_timestamp_part_2',
+        'num_window',
+        'cvtd_timestamp'
+) 
+raw<-raw[,!delete2]
+
+#factor classe
+raw$classe<-factor(raw$classe)
+```
+
+Now, split into testing and training datasets
+```{r echo=TRUE,warning=F,message=F,cache=T}
+inTrain=createDataPartition(y=raw$classe,p=0.6,list=FALSE)
+training=raw[inTrain,]
+testing=raw[-inTrain,]
+```
+
+####Decision Tree  
+Build with caret's rpart method and the training dataset.  
+```{r echo=TRUE,warning=F,message=F,cache=T}
+#random forest - train
+modFitTree<-train(classe~.,method="rpart",data=training)
+fancyRpartPlot(modFitTree$finalModel)
+predictTree<-predict(modFitTree,newdata=training)
+conMatrixTree<-confusionMatrix(predictTree,training$classe)
+conMatrixTree
+
+```
+The decision tree is 50% accurate when applied to the testing data.  Not very good. Instead of spending time tuning the model, I examine other approaches:  
+
+####Random Forests
+Build with randomForest and the training dataset. Chose not to use caret's rf method, as it runs very slowly on my machine.
+```{r echo=TRUE,warning=F,message=F,cache=T}
+#random forest - train
+modFitRF<-randomForest(classe~.,data=training)
+predictRF<-predict(modFitRF,newdata=training)
+conMatrixRF<-confusionMatrix(predictRF,training$classe)
+conMatrixRF
+
+```
+Random forests is 100% accurate when applied to the testing data.  
+
+####Boosting
+Build with caret's gbm method and the training dataset.
+```{r echo=TRUE,warning=F,message=F,cache=T}
+#Boosted - train
+modFitBoost<-train(classe~.,method="gbm",data=training,verbose=FALSE)
+predictBoost<-predict(modFitBoost,newdata=training)
+conMatrixBoost<-confusionMatrix(predictBoost,training$classe)
+conMatrixBoost
+```
+Boosting is over 97% accurate when applied to the testing data.    
+
+The random forests model has the highest accuracy, this is the "best" model. 
+
+####Cross-Validate the Best Model: Random Forests
+```{r echo=TRUE,warning=F,message=F,cache=T}
+#cross-valication
+predictRF<-predict(modFitRF,newdata=testing)
+conMatrixRFtest<-confusionMatrix(predictRF,testing$classe)
+conMatrixRFtest
+```
+As expected, accuracy decreases slightly when going from training to testing data sets. The out of sample error rate (1-accuracy) is still under 1%.   
+
+####Apply Random Forests to the 20 Test Cases
+Applying random forests to the 20 records for course project submission, 20/20 forecast accurately.
+```{r echo=TRUE,warning=F,message=F,cache=T}
+the20RF<-predict(modFitRF,newdata=the20)
+the20RF
+
+#code from assignment page
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(the20RF)
+
+#submitted: 20/20 correct!
+```
