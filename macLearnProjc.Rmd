@@ -109,7 +109,7 @@ conMatrixTree<-confusionMatrix(predictTree,training$classe)
 conMatrixTree
 
 ```
-The decision tree is 50% accurate when applied to the testing data.  Not very good. Instead of spending time tuning the model, I examine other approaches:  
+The decision tree is 50% accurate when applied to the training data.  Not very good. Instead of spending time tuning the model, I examine other approaches:  
 
 ####Random Forests
 Build with randomForest and the training dataset. Chose not to use caret's rf method, as it runs very slowly on my machine.
@@ -120,7 +120,7 @@ conMatrixRF<-confusionMatrix(predictRF,training$classe)
 conMatrixRF
 
 ```
-Random forests is 100% accurate when applied to the testing data.  
+Random forests is 100% accurate when applied to the training data.  
 
 ####Boosting
 Build with caret's gbm method and the training dataset.
@@ -130,7 +130,7 @@ predictBoost<-predict(modFitBoost,newdata=training)
 conMatrixBoost<-confusionMatrix(predictBoost,training$classe)
 conMatrixBoost
 ```
-Boosting is over 97% accurate when applied to the testing data.    
+Boosting is over 97% accurate when applied to the training data.    
 
 The random forests model has the highest accuracy, this is the "best" model. 
 
