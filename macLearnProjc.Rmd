@@ -134,13 +134,15 @@ Boosting is over 97% accurate when applied to the testing data.
 
 The random forests model has the highest accuracy, this is the "best" model. 
 
-####Cross-Validate the Best Model: Random Forests
+####Cross-Validate the Best Model: Random Forests  
+Since model accuracy is 100%, error is 0%.  With cross validation, I expect the out of sample error to be slightly greater than 0%.
+
 ```{r echo=TRUE,warning=F,message=F,cache=T}
 predictRF<-predict(modFitRF,newdata=testing)
 conMatrixRFtest<-confusionMatrix(predictRF,testing$classe)
 conMatrixRFtest
 ```
-As expected, accuracy decreases slightly when going from training to testing data sets. The out of sample error rate (1-accuracy) is still under 1%.   
+As expected, accuracy decreases slightly when going from training to testing data sets. The out of sample error rate (1-accuracy) is just 0.75%.
 
 ####Apply Random Forests to the 20 Test Cases
 Applying random forests to the 20 records for course project submission, 20/20 forecast accurately.
